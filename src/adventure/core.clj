@@ -52,19 +52,26 @@
 (defn what-is-found
     "determine what new items are found, 'update' state, return the new state"
     [state]
-    (let [remaining-items (into #{} (keys (state :items)))
+    (let [remaining-items-set (into #{} (keys (state :items)))
           curr-room (-> state :player :location)
-          curr-items (-> state :player :inventories)]
-        (if (remaining-items curr-room)
-            (let [room-item ((state :items) curr-room)]
+          curr-invt (-> state :player :inventories)]
+		;; if curr-room have something
+		;; update player invts and possibly defense or damage, remove room-item from state item
+        (if (remaining-items-set curr-room)
+            (let [room-item ((state :items) curr-room)
+				  add-invt (assoc-in state [:player :inventories] (conj curr-invt room-item))]
                 (println "You found" room-item)     ;; TODO: add description for the item
-                (assoc-in state [:player :items] (conj curr-items room-item))
-                (when (= room-item "armor") (assoc-in state [:player :defense] 2))
-                (when (= room-item "sword") (assoc-in state [:player :damage] 4))
-                (dissoc (state :items) curr-room)
-            )
-            "No item found in this room")
-          ))
+                (cond (= room-item "armor") 
+							(let [add-invt-def (assoc-in add-invt [:player :defense] 2)]
+								(assoc-in add-invt-def [:items] (dissoc ((state :items) curr-room))))
+					  (= room-item "sword") 
+							(let [add-invt-dmg (assoc-in add-invt [:player :damage] 4)]
+								(assoc-in add-invt-dmg [:items] (dissoc (state :items) curr-room)))
+					  :else 
+					  		(assoc-in add-invt [:items] (dissoc (state :items) curr-room))))
+            (do (println "No item found in this room") 
+				state)
+		)))
 
 (defn meet-boss
 	"return true if boss and the player are in the same cell, false otherwise"
@@ -131,7 +138,7 @@
 	(let [ready (read-line)]
 		(if (or (= ready "Y") (= ready "y")) 
 			(println "ONLY WINNER SERVIVES ... GOOD LUCK!") (println "There is no way back now ... FIGHT UNTIL YOU DIE!"))
-			(Thread/sleep 2000)
+			(Thread/sleep 1500)
 			(println "BOSS SPAWNING...")
 			(Thread/sleep 2000))
 	(fight-status state)
@@ -151,5 +158,5 @@
 
 (def state (new-game))
 
-;; (fight-boss state)
+(println (what-is-found state))
 
