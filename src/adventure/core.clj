@@ -25,7 +25,7 @@
 		  sword (rand-unique maze-size #{0 armor fire-resist lightning-resist poison-resist})]
 		{:boss   {:health 20  		:location 2  		:damage 2
 				  :skills [["fire" 6] ["lightning" 4] ["poison" 8]]}
-		 :player {:health 10        :damage 3           :defense 0
+		 :player {:health 10        :damage 2           :defense 0
 				  :inventories []   :location 0			:look-around 3
 				  :tick 0           :seen 0}
 		 :items  {armor "ARMOR"     					sword "SWORD"
@@ -61,9 +61,11 @@
                 (println "You found" room-item)     ;; TODO: add description for the item
                 (cond (= room-item "ARMOR") 
 							(let [add-invt-def (assoc-in add-invt [:player :defense] 2)]
+								(println "Your defense increased from 0 -> 2")
 								(assoc-in add-invt-def [:items] (dissoc (state :items) curr-room)))
 					  (= room-item "SWORD") 
-							(let [add-invt-dmg (assoc-in add-invt [:player :damage] 5)]
+							(let [add-invt-dmg (assoc-in add-invt [:player :damage] 4)]
+								(println "Your damage increased from 2 -> 4")
 								(assoc-in add-invt-dmg [:items] (dissoc (state :items) curr-room)))
 					  :else 
 					  		(assoc-in add-invt [:items] (dissoc (state :items) curr-room))))
@@ -110,12 +112,12 @@
 		player-invts (-> state :player :inventories)
 		boss-hp (-> state :boss :health)]
 		(println "\n"
-		"############# PLAYER status #############\n"
-		"  [hp]" player-hp "    [damage]" player-damage "    [defense]" player-defense " \n"
+		"############################## PLAYER status ##############################\n"
+		"  [hp]" player-hp "\t\t[damage]" player-damage "\t\t[defense]" player-defense "\n"
 		"  [inventories]" player-invts "\n"
-		"############## BOSS status ##############\n"
+		"############################### BOSS status ###############################\n"
 		"  [hp]" boss-hp "\n"
-		"#########################################")))
+		"###########################################################################")))
 
 (defn boss-rand-attack
 	"boss attack player randomly, return vect [skill-name, damage]"
@@ -229,19 +231,23 @@
 		(let [new-state (player-response curr-state (boss-rand-attack curr-state))]
 			(fight-status new-state)
 			(if (game-over new-state)
-				(println "Thanks for playing!")
+				(do (println "Thanks for playing!")
+					(System/exit 0))
 				(recur new-state)))) )
 
 (defn play
 	"play loop, helper function for main"
 	[state]
-	(println "Welcome to the game!")
+	(println "==============================")
+	(println "##   Welcome to the game!   ##")
+	(println "==============================")
 	(Thread/sleep 1500)
 	(loop [curr-state state]
 		(let [after-boss-move (move-boss curr-state)]
 			(when (boss-is-nearby after-boss-move)
 				(println "The boss is in a nearby room"))
 			(let [after-find (what-is-found (player-move after-boss-move))]
+				(println "Your inventories:" (-> after-find :player :inventories))
 				(when (boss-is-nearby after-find)
 					(println "The boss is in a nearby room"))
 				(if (meet-boss after-find)
