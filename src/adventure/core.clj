@@ -45,9 +45,7 @@
 (defn boss-is-nearby
     "input curr state, return true if boss is nearby"
 	[state]
-	(let [res (contains? (into #{} (-> state :player :location maze)) (-> state :boss :location))]
-		(when res (println "The boss is in a nearby room"))
-		res))
+	(contains? (into #{} (-> state :player :location maze)) (-> state :boss :location)))
 
 (defn what-is-found
     "determine what new items are found, 'update' state, return the new state"
@@ -90,9 +88,9 @@
 						   	  avai (maze curr-pos)]
 							(println "available next steps are:" avai)
 							(println "please enter the room you want to go:"))
-						(let [room-choice (read-line)]
+						(let [room-choice (read-line)] ;; TODO: handle exception, BUGS FOUND
 							(println (str "Your choice is room #" room-choice))
-							(assoc-in state [:player :location] room-choice)))
+							(assoc-in state [:player :location] (Integer/parseInt room-choice))))
 			  (or (= choice "Q") (= choice "q"))  
 					(do (println "Thanks for playing!"))
 			  :else ((do (println "Please key in M or Q") 
@@ -195,8 +193,18 @@
 						(use-inventory state skill-damage)
 				:else
 						(do (println "Please key in U or A or B") 
-						(recur (read-line))) ))
-	)
+						(recur (read-line))))) )
+
+(defn game-over
+	"return true if game over, false otherwise"
+	[state]
+	(cond (<= (-> state :boss :health) 0)
+				(do (println "You Win!")
+					true)
+		  (<= (-> state :player :health) 0)
+				(do (println "You Lose!")
+					true)
+		  :else false))
 
 (defn fight-boss
     "this function is called when player and boss are in the same cell"
@@ -214,19 +222,29 @@
 			(Thread/sleep 2000))
 	(fight-status state)
 	
-	;; TODO: FIGHT HERE
-	(def new-state state)	;; place holder
+	;; FIGHT HERE
+	(loop [curr-state state]
+		(let [new-state (player-response curr-state (boss-rand-attack curr-state))]
+			(if (game-over new-state)
+				(println "Thanks for playing!")
+				(recur new-state)))) )
 
-	(cond (<= (-> new-state :boss :health) 0)
-				(println "You Win!")
-		  (<= (-> new-state :player :health) 0)
-				(println "You Lose!")
-		  :else (fight-boss new-state)))
+(defn play
+	"play loop, helper function for main"
+	[state]
+	(loop [curr-state state]
+		(let [after-move (player-move (move-boss state))]
+			(when (boss-is-nearby after-move) 
+				(println "The boss is in a nearby room"))
+			(let [after-find (what-is-found after-move)]
+				(if (meet-boss after-find)
+					(fight-boss after-find)
+					(recur after-find)))
+			)))
 
+(defn main 
+	"main function for playing the game"
+	[]
+	(play (new-game)))
 
-
-
-
-(def state (new-game))
-
-(println (player-response state ["poison" 8]))
+(main)
