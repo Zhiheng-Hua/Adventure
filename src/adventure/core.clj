@@ -3,9 +3,9 @@
 
 ;; player starts at 0
 ;; boss starts at 2
-(def maze  {1 [2 5] 2 [1 4 6] 3 [4 7] 4 [2 11] 5 [1 6 8]
-			6 [2 5 7 9] 7 [3 6 11] 8 [5 12 13] 9 [6 10 12] 10 [9 11 14]
-			11 [4 7 10] 12 [8 9 14] 13 [8 14] 0 [10 12 13]})
+(def maze  {0 [10 12 13] 1 [2 5] 	 2 [1 4 6] 	3 [4 7] 	4 [2 3 11]
+			5 [1 6 8]	 6 [2 5 7 9] 7 [3 6 11] 8 [5 12 13] 9 [6 10 12]
+			10 [0 9 11]  11 [4 7 10] 12 [0 8 9] 13 [0 8]})
 
 (def maze-size (count maze))
 
@@ -25,8 +25,8 @@
 		  sword (rand-unique maze-size #{0 armor fire-resist lightning-resist poison-resist})]
 		{:boss   {:health 20  		:location 2  		:damage 2
 				  :skills [["fire" 6] ["lightning" 4] ["poison" 8]]}
-		 :player {:health 10        :damage 1           :defense 0
-				  :inventories ["fire-resist" "poison-resist"]   :location 0			:look-around 3
+		 :player {:health 10        :damage 3           :defense 0
+				  :inventories []   :location 0			:look-around 3
 				  :tick 0           :seen 0}
 		 :items  {armor "ARMOR"     					sword "SWORD"
 				  fire-resist "fire-resist"				lightning-resist "lightning-resist"
@@ -61,9 +61,9 @@
                 (println "You found" room-item)     ;; TODO: add description for the item
                 (cond (= room-item "ARMOR") 
 							(let [add-invt-def (assoc-in add-invt [:player :defense] 2)]
-								(assoc-in add-invt-def [:items] (dissoc ((state :items) curr-room))))
+								(assoc-in add-invt-def [:items] (dissoc (state :items) curr-room)))
 					  (= room-item "SWORD") 
-							(let [add-invt-dmg (assoc-in add-invt [:player :damage] 4)]
+							(let [add-invt-dmg (assoc-in add-invt [:player :damage] 5)]
 								(assoc-in add-invt-dmg [:items] (dissoc (state :items) curr-room)))
 					  :else 
 					  		(assoc-in add-invt [:items] (dissoc (state :items) curr-room))))
@@ -84,15 +84,15 @@
 	(println "What do you want to do? [M]ove/[Q]uit")
 	(let [choice (read-line)]
 		(cond (or (= choice "M" ) (= choice "m")) 
-					(do (let [curr-pos (-> state :player :location)
-						   	  avai (maze curr-pos)]
+					(do (let [avai (-> state :player :location maze)]
 							(println "available next steps are:" avai)
 							(println "please enter the room you want to go:"))
 						(let [room-choice (read-line)] ;; TODO: handle exception, BUGS FOUND
 							(println (str "Your choice is room #" room-choice))
-							(assoc-in state [:player :location] (Integer/parseInt room-choice))))
+							(assoc-in state [:player :location] (Integer/parseInt room-choice)) ))
 			  (or (= choice "Q") (= choice "q"))  
-					(do (println "Thanks for playing!"))
+					(do (println "Thanks for playing!")
+						(System/exit 0))
 			  :else ((do (println "Please key in M or Q") 
 			  			  (player-move state)))) ))
 
@@ -141,11 +141,12 @@
 			(assoc-in state [:player :health] (- player-hp (- dmg player-def)))))
 
 (defn use-inventory
-	"player use inventory item, calculate damage taken by player, return new state accordingly"
+	"player use inventory AND take damage, return new state accordingly"
 	[state skill-damage]
 	(let [invts (-> state :player :inventories)
 		  avai (vec (filter #(and (not (= % "ARMOR")) (not (= % "SWORD"))) invts))
-		  idx-avai (for [idx (range (count avai))] [(str idx ":") (avai idx)])
+		  idx-avai (for [idx (range (count avai))] 
+		  			  	[(str idx ":") (avai idx)])
 		  skl (skill-damage 0)]
 		(if (<= (count avai) 0)
 			(do (println "You don't have any inventories to use")
@@ -170,12 +171,11 @@
 
 (defn attack-the-boss
 	"Deal damage to the boss, according to the player's damage level, return new state"
-	[state skill-damage]
+	[state]
 	(let [player-dmg (-> state :player :damage)
-			boss-hp (-> state :boss :health)
-			taken-dmg (player-take-damage state skill-damage)]
+		  boss-hp (-> state :boss :health)]
 		(println "You dealt" player-dmg "damage to the BOSS")
-		(assoc-in taken-dmg [:boss :health] (- boss-hp player-dmg))))
+		(assoc-in state [:boss :health] (- boss-hp player-dmg))))
 
 (defn player-response
 	"player response boss attack with certain action, according to the input,
@@ -187,13 +187,15 @@
 	(loop [choice (read-line)]
 		(cond (or (= choice "U") (= choice "u"))
 					(use-inventory state skill-damage)
-				(or (= choice "A") (= choice "a"))
-						(attack-the-boss state skill-damage)
-				(or (= choice "B") (= choice "b"))
-						(use-inventory state skill-damage)
-				:else
-						(do (println "Please key in U or A or B") 
-						(recur (read-line))))) )
+			  (or (= choice "A") (= choice "a"))
+					(let [after-attack (attack-the-boss state)]
+						(player-take-damage after-attack skill-damage))
+			  (or (= choice "B") (= choice "b"))
+					(let [after-attack (attack-the-boss state)]
+						(use-inventory after-attack skill-damage))
+			  :else
+					(do (println "Please key in U or A or B") 
+					(recur (read-line))))) )
 
 (defn game-over
 	"return true if game over, false otherwise"
@@ -225,6 +227,7 @@
 	;; FIGHT HERE
 	(loop [curr-state state]
 		(let [new-state (player-response curr-state (boss-rand-attack curr-state))]
+			(fight-status new-state)
 			(if (game-over new-state)
 				(println "Thanks for playing!")
 				(recur new-state)))) )
@@ -232,11 +235,15 @@
 (defn play
 	"play loop, helper function for main"
 	[state]
+	(println "Welcome to the game!")
+	(Thread/sleep 1500)
 	(loop [curr-state state]
-		(let [after-move (player-move (move-boss state))]
-			(when (boss-is-nearby after-move) 
+		(let [after-boss-move (move-boss curr-state)]
+			(when (boss-is-nearby after-boss-move)
 				(println "The boss is in a nearby room"))
-			(let [after-find (what-is-found after-move)]
+			(let [after-find (what-is-found (player-move after-boss-move))]
+				(when (boss-is-nearby after-find)
+					(println "The boss is in a nearby room"))
 				(if (meet-boss after-find)
 					(fight-boss after-find)
 					(recur after-find)))
