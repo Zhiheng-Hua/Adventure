@@ -16,23 +16,21 @@
         (if (exclude pick) (rand-unique max exclude) pick)))
 
 (defn new-game []
-	"Generate the initial state of the game, return the state"
-	"contains information of boss, player, and items in the maze by mapping room# to item name"
+	"Generate the initial state of the game, return the state,
+	 contains information of boss, player, and items in the maze by mapping room# to item name"
   	(let [armor (rand-unique maze-size #{0})
 		  fire-resist (rand-unique maze-size #{0 armor})
 		  lightning-resist (rand-unique maze-size #{0 armor fire-resist})
 		  poison-resist (rand-unique maze-size #{0 armor fire-resist lightning-resist})
-		  heal-potion (rand-unique maze-size #{0 armor fire-resist lightning-resist poison-resist})
-		  sword (rand-unique maze-size #{0 armor fire-resist lightning-resist poison-resist heal-potion})
-		  ]
+		  sword (rand-unique maze-size #{0 armor fire-resist lightning-resist poison-resist})]
 		{:boss   {:health 20  		:location 2  		:damage 2
 				  :skills [["fire" 6] ["lightning" 4] ["poison" 8]]}
 		 :player {:health 10        :damage 1           :defense 0
-				  :inventories []   :location 0			:look-around 3
+				  :inventories ["fire-resist" "poison-resist"]   :location 0			:look-around 3
 				  :tick 0           :seen 0}
 		 :items  {armor "ARMOR"     					sword "SWORD"
 				  fire-resist "fire-resist"				lightning-resist "lightning-resist"
-				  poison-resist "poison-resist"			heal-potion "heal-potion"}
+				  poison-resist "poison-resist"}
 		}))
 
 (defn move-boss
@@ -135,23 +133,14 @@
 						[(action 0) (action 1)])
 		)))
 
-;; (defn player-response
-;; 	"player response boss attack with certain action, according to the input"
-;; 	"input damage, return updated state"
-;; 	[damage]
-;; 	(println "The BOSS attacked you, what do you want to do?")
-;; 	(println "You can take up to two actions:")
-;; 	(println "    [U]se inventory items/[A]ttack the boss/[B]oth")
-;; 	(loop [choice (read-line)]
-;; 		(cond (or (= choice "U") (= choice "u"))
-;; 					()
-;; 			  (or (= choice "A") (= choice "a"))
-;; 			  		()
-;; 			  (or (= choice "B") (= choice "b"))
-;; 			  		()
-;; 			  :else
-;; 			  		(do (println "Please key in U or A or B") 
-;; 						(recur (read-line))) )))
+(defn player-take-damage
+	"player take damage according to defense and damage"
+	[state skill-damage]
+	(let [dmg (skill-damage 1)
+			player-hp (-> state :player :health)
+			player-def (-> state :player :defense)]
+			(println "You took" (- dmg player-def) "damage")
+			(assoc-in state [:player :health] (- player-hp (- dmg player-def)))))
 
 (defn use-inventory
 	"player use inventory item, calculate damage taken by player, return new state accordingly"
@@ -159,39 +148,55 @@
 	(let [invts (-> state :player :inventories)
 		  avai (vec (filter #(and (not (= % "ARMOR")) (not (= % "SWORD"))) invts))
 		  idx-avai (for [idx (range (count avai))] [(str idx ":") (avai idx)])
-		  skl (skill-damage 0)
-		  dmg (skill-damage 1)
-		  player-hp (-> state :player :health)
-		  player-def (-> state :player :defense)]
-	(if (<= (count avai) 0)
-		(do (println "You don't have any inventories to use")
-			(assoc-in state [:player :health] (- player-hp (- dmg player-def))))
-		(do (println "What item in your inventory do you want to use?")
-			(println "Available items are" idx-avai)
-			(println "Please key in the index:")
-			(loop [choice (read-line)]
-				(cond ((into #{} (map str (range (count avai)))) choice)
-						(let [invt-choice ((into {} idx-avai) (str choice ":"))]
-							(println "You used" invt-choice)
-							(if (= skl "normal")
-								(assoc-in state [:player :health] (- player-hp (- dmg player-def)))
-								(if (= (str skl "-resist") invt-choice)
-									(do (println "Nice parry, you are intact in this attack!")
-										state)
-									(assoc-in state [:player :health] (- player-hp (- dmg player-def)))
-								)))
-					  :else
-						(do (println "please key in a valid index")
-							(recur (read-line))))) )
-	)))
+		  skl (skill-damage 0)]
+		(if (<= (count avai) 0)
+			(do (println "You don't have any inventories to use")
+				(player-take-damage state skill-damage))
+			(do (println "What item in your inventory do you want to use?")
+				(println "Available items are" idx-avai)
+				(println "Please key in the index:")
+				(loop [choice (read-line)]
+					(cond ((into #{} (map str (range (count avai)))) choice)
+							(let [invt-choice ((into {} idx-avai) (str choice ":"))]
+								(println "You used" invt-choice)
+								(if (= skl "normal")
+									(player-take-damage state skill-damage)
+									(if (= (str skl "-resist") invt-choice)
+										(do (println "Nice parry, you are intact in this attack!")
+											state)
+										(player-take-damage state skill-damage))))
+						  :else
+							(do (println "please key in a valid index")
+								(recur (read-line))))
+				)))))
 
 (defn attack-the-boss
 	"Deal damage to the boss, according to the player's damage level, return new state"
-	[state]
-	(let [dmg (-> state :player :damage)
-		  boss-hp (-> state :boss :health)]
-		(println "You dealt" dmg "damage to the BOSS")
-		(assoc-in state [:boss :health] (- boss-hp dmg))))
+	[state skill-damage]
+	(let [player-dmg (-> state :player :damage)
+			boss-hp (-> state :boss :health)
+			taken-dmg (player-take-damage state skill-damage)]
+		(println "You dealt" player-dmg "damage to the BOSS")
+		(assoc-in taken-dmg [:boss :health] (- boss-hp player-dmg))))
+
+(defn player-response
+	"player response boss attack with certain action, according to the input,
+		this function will also calculate the damage boss and player take, return new state"
+	[state skill-damage]
+	(println "The BOSS attacked you, what do you want to do?")
+	(println "You can take up to two actions:")
+	(println "    [U]se inventory items/[A]ttack the boss/[B]oth")
+	(loop [choice (read-line)]
+		(cond (or (= choice "U") (= choice "u"))
+					(use-inventory state skill-damage)
+				(or (= choice "A") (= choice "a"))
+						(attack-the-boss state skill-damage)
+				(or (= choice "B") (= choice "b"))
+						(use-inventory state skill-damage)
+				:else
+						(do (println "Please key in U or A or B") 
+						(recur (read-line))) ))
+	)
 
 (defn fight-boss
     "this function is called when player and boss are in the same cell"
@@ -224,4 +229,4 @@
 
 (def state (new-game))
 
-(println (use-inventory state ["poison" 8]))
+(println (player-response state ["poison" 8]))
