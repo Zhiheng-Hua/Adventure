@@ -36,16 +36,20 @@
 (defn move-boss
 	"move boss to one of its neighboring room randomly, 'update' state, and return the new state"
 	[state]
-	(println "BOSS moved")
+	(println "The BOSS moved")
 	(let [possible-locs (-> state :boss :location maze)
 		  idx           (rand-int (count possible-locs))]
 		  (assoc-in state [:boss :location] (possible-locs idx))
 	))
 
 (defn boss-is-nearby
-    "input curr state, return true if boss is nearby"
+    "input curr state, if boss is nearby, return true and print out warning, return false otherwise"
 	[state]
-	(contains? (into #{} (-> state :player :location maze)) (-> state :boss :location)))
+	(let [res (contains? (into #{} (-> state :player :location maze)) (-> state :boss :location))]
+		(when res (println "  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n"
+						   	"  WARNING: The boss is in a nearby room \n"
+						   	" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n"))
+		res))
 
 (defn what-is-found
     "determine what new items are found, 'update' state, return the new state"
@@ -86,17 +90,20 @@
 	(println "What do you want to do? [M]ove/[Q]uit")
 	(let [choice (read-line)]
 		(cond (or (= choice "M" ) (= choice "m")) 
-					(do (let [avai (-> state :player :location maze)]
-							(println "available next steps are:" avai)
-							(println "please enter the room you want to go:"))
-						(let [room-choice (read-line)] ;; TODO: handle exception, BUGS FOUND
-							(println (str "Your choice is room #" room-choice))
-							(assoc-in state [:player :location] (Integer/parseInt room-choice)) ))
+					(let [avai (-> state :player :location maze)]
+						(println "available next steps are:" avai)
+						(println "please enter the room you want to go:")
+						(loop [room-choice (read-line)] ;; TODO: handle exception
+							(if ((into #{} (map str avai)) room-choice)
+								(do (println (str "Your choice is room #" room-choice))
+									(assoc-in state [:player :location] (Integer/parseInt room-choice)))
+								(do (println "Please key in a valid room number")
+									(recur (read-line))) )))
 			  (or (= choice "Q") (= choice "q"))  
 					(do (println "Thanks for playing!")
 						(System/exit 0))
-			  :else ((do (println "Please key in M or Q") 
-			  			  (player-move state)))) ))
+			  :else (do (println "Please key in M or Q") 
+			  			(player-move state)) )))
 
 (defn check-around
 	"player check around, print out all neighboring room, consume 1 look-around"
@@ -214,16 +221,14 @@
     "this function is called when player and boss are in the same cell"
     [state]
 	(println "\n"
-		"=====================================\n"
-		">>>>> THE FINAL FIGHT IS COMING <<<<<\n"
-		"=====================================")
+		"=======================================\n"
+		">>>>>  THE FINAL FIGHT IS COMING  <<<<<\n"
+		"=======================================")
 	(println "Are You Ready? [Y]es/[N]o")
 	(let [ready (read-line)]
 		(if (or (= ready "Y") (= ready "y")) 
 			(println "ONLY WINNER SERVIVES ... GOOD LUCK!") (println "There is no way back now ... FIGHT UNTIL YOU DIE!"))
-			(Thread/sleep 1500)
-			(println "BOSS SPAWNING...")
-			(Thread/sleep 2000))
+			(Thread/sleep 1500))
 	(fight-status state)
 	
 	;; FIGHT HERE
@@ -241,15 +246,13 @@
 	(println "==============================")
 	(println "##   Welcome to the game!   ##")
 	(println "==============================")
-	(Thread/sleep 1500)
+	(println "Press any button to continue...")
+	(read-line)
 	(loop [curr-state state]
 		(let [after-boss-move (move-boss curr-state)]
-			(when (boss-is-nearby after-boss-move)
-				(println "The boss is in a nearby room"))
+			(boss-is-nearby after-boss-move)
 			(let [after-find (what-is-found (player-move after-boss-move))]
 				(println "Your inventories:" (-> after-find :player :inventories))
-				(when (boss-is-nearby after-find)
-					(println "The boss is in a nearby room"))
 				(if (meet-boss after-find)
 					(fight-boss after-find)
 					(recur after-find)))
