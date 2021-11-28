@@ -93,7 +93,7 @@
 					(let [avai (-> state :player :location maze)]
 						(println "available next steps are:" avai)
 						(println "please enter the room you want to go:")
-						(loop [room-choice (read-line)] ;; TODO: handle exception
+						(loop [room-choice (read-line)]
 							(if ((into #{} (map str avai)) room-choice)
 								(do (println (str "Your choice is room #" room-choice))
 									(assoc-in state [:player :location] (Integer/parseInt room-choice)))
