@@ -7,6 +7,48 @@
 			5 [1 6 8]	 6 [2 5 7 9] 7 [3 6 11] 8 [5 12 13] 9 [6 10 12]
 			10 [0 9 11]  11 [4 7 10] 12 [0 8 9] 13 [0 8]})
 
+(def item-description 
+	{"ARMOR" {:desc "This is a firm and reliable armor that can protect you from danger."
+			  :name "ARMOR"}
+	"SWORD" {:desc "This is a sharp sword prepared for the warrior."
+		     :name "SWORD"}
+	"fire-resist" {:desc "This is a bottle of fire-resist potion, which can prevent you from the damage of fire."
+				   :name "fire-resist"}
+	"lightning-resist" {:desc "This is a bottle of lightning-resist potion, which can prevent you from the damage of lightning"
+					    :name "lightning-resist"}
+	"poison-resist" {:desc "This is a bottle of poison-resist potion, which can prevent you from the damage of poison"
+				     :name "poison-resist"}})
+
+(def room-description 
+  { 1 {:name "Castle"
+       :desc "An old castle with all the doors and windows sealed with wood plates."}
+    2 {:name "Dragon's spawn"
+       :desc "This is the spawn of Evil Dragon. Dark and gloomy..."}
+    3 {:name "Fort"
+       :desc "A suspicious fort… You don't want to stay here for long."}
+    4 {:name "Tomb"
+       :desc "You ran into a mysterious tomb."}
+    5 {:name "Volcano"
+       :desc "You noticed an unstable volcano. Be aware of any incoming dangers."}
+    6 {:name "Twilight Forest"
+       :desc "This is the notorious Twilight Forest. You don't want to be careless here."}
+    7 {:name "Desert"
+       :desc "A desert called Lahara. Don't get heat stroke."}
+    8 {:name "Mine"
+       :desc "This place seems like a mine during the war time, but there is nothing here anymore..."}
+    9 {:name "Cornfield"
+       :desc "There is nothing but only cornfields."}
+    10 {:name "Stawford"
+        :desc "A town named Stawford. It seems it was just newly abandoned."}
+    11 {:name "Swamp"
+        :desc "Many swamps... Be careful!"}
+    12 {:name "Prairie"
+        :desc "A vast prairie. Seems you can learn something here."}
+    13 {:name "Acton"
+        :desc "Here is an abandoned town. According to the map, it was called Acton."}
+    0  {:name "Your Spawn"
+        :desc "This is your spawn, the home of the brave." }})
+
 (def maze-size (count maze))
 
 (defn rand-unique
@@ -27,7 +69,7 @@
 				  :skills [["fire" 6] ["lightning" 4] ["poison" 8]]}
 		 :player {:health 10        :damage 2           :defense 0
 				  :inventories []   :location 0			:look-around 3
-				  :tick 0           :seen 0}
+				  :tick 0           :seen #{"0"}}
 		 :items  {armor "ARMOR"     					sword "SWORD"
 				  fire-resist "fire-resist"				lightning-resist "lightning-resist"
 				  poison-resist "poison-resist"}
@@ -47,7 +89,7 @@
 	[state]
 	(let [res (contains? (into #{} (-> state :player :location maze)) (-> state :boss :location))]
 		(when res (println "  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n"
-						   	"  WARNING: The boss is in a nearby room \n"
+						   	"  WARNING: The boss is in a nearby room  \n"
 						   	" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n"))
 		res))
 
@@ -62,7 +104,9 @@
         (if (remaining-items-set curr-room)
             (let [room-item ((state :items) curr-room)
 				  add-invt (assoc-in state [:player :inventories] (conj curr-invt room-item))]
-                (println "You found" room-item)     ;; TODO: add description for the item
+                (println "You found a new item!")     ;; TODO: add description for the item
+				(println "**" ((item-description room-item) :name) "**\n"
+					((item-description room-item) :desc))
                 (cond (= room-item "ARMOR") 
 							(let [add-invt-def (assoc-in add-invt [:player :defense] 2)]
 								(println "Your defense increased from 0 -> 2")
@@ -84,30 +128,53 @@
 		  boss-pos (-> state :boss :location)]
 		  (= player-pos boss-pos)))
 
+(defn print-room-desc
+"player check the information of the current room, print the description of the room,
+return nothing"
+[state]
+(let [curr-room (-> state :player :location)]
+		(println ((room-description curr-room) :desc)) ))
+
 (defn player-move
 	"move player to the next location depending on player's input, return the new state"
 	[state]
-	(println "What do you want to do? [M]ove/[Q]uit")
-	(let [choice (read-line)]
+	(println "What do you want to do? [R]oom-Description/[S]een-rooms/[M]ove/[Q]uit")
+	(let [choice (read-line)
+      	  tick (-> state :player :tick)]
 		(cond (or (= choice "M" ) (= choice "m")) 
 					(let [avai (-> state :player :location maze)]
 						(println "available next steps are:" avai)
 						(println "please enter the room you want to go:")
 						(loop [room-choice (read-line)]
 							(if ((into #{} (map str avai)) room-choice)
-								(do (println (str "Your choice is room #" room-choice))
-									(assoc-in state [:player :location] (Integer/parseInt room-choice)))
+								(let [after-seen (assoc-in state [:player :seen] (conj (-> state :player :seen) room-choice))
+									  after-tick (assoc-in after-seen [:player :tick] (inc tick))
+									  ret-state (assoc-in after-tick [:player :location] (Integer/parseInt room-choice))]
+									  (println (str "Your choice is room #" room-choice))
+									  (if ((-> state :player :seen) room-choice)
+											(println ((room-description (Integer/parseInt room-choice)) :name))
+									   		(print-room-desc ret-state))
+									  ret-state)
 								(do (println "Please key in a valid room number")
 									(recur (read-line))) )))
 			  (or (= choice "Q") (= choice "q"))  
 					(do (println "Thanks for playing!")
 						(System/exit 0))
-			  :else (do (println "Please key in M or Q") 
-			  			(player-move state)) )))
+			  :else (cond (or (= choice "R") (= choice "r"))
+								(do (print-room-desc state)
+									(player-move state))
+						  (or (= choice "S") (= choice "s"))
+								(do (println (-> state :player :seen))
+									(player-move state))
+						  :else (do (println "Please key in R or M or Q") 
+									(player-move state)))
+		)))
 
 (defn check-around
 	"player check around, print out all neighboring room, consume 1 look-around"
-	[]
+	[state]
+    (let [curr-room (-> state :player :location)]
+        	)
 	)
 
 (defn fight-status
@@ -227,7 +294,7 @@
 	(println "Are You Ready? [Y]es/[N]o")
 	(let [ready (read-line)]
 		(if (or (= ready "Y") (= ready "y")) 
-			(println "ONLY WINNER SERVIVES ... GOOD LUCK!") (println "There is no way back now ... FIGHT UNTIL YOU DIE!"))
+			(println "ONLY WINNER SURVIVES... GOOD LUCK!") (println "There is no way back now ... FIGHT UNTIL YOU DIE!"))
 			(Thread/sleep 1500))
 	(fight-status state)
 	
