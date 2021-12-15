@@ -7,6 +7,18 @@
 			5 [1 6 8]	 6 [2 5 7 9] 7 [3 6 11] 8 [5 12 13] 9 [6 10 12]
 			10 [0 9 11]  11 [4 7 10] 12 [0 8 9] 13 [0 8]})
 
+(def maze-graph
+	"\t
+	5 ---- 1 --- 2 ---- 4 \t
+	| \\         /     / | \t
+	|   \\     /     3   | \t
+	|     \\ /       |   | \t
+	8      6 ------ 7   | \t
+	|  \\     \\      |   | \t
+	13  12 --- 9    |   | \t
+	|  /       |     \\  | \t
+	0 -------- 10 ---- 11 \n")
+
 (def item-description 
 	{"ARMOR" {:desc "This is a firm and reliable armor that can protect you from danger."
 			  :name "ARMOR"}
@@ -78,7 +90,7 @@
 (defn move-boss
 	"move boss to one of its neighboring room randomly, 'update' state, and return the new state"
 	[state]
-	(println "The BOSS moved\n")
+	(println "\tThe BOSS moved\n")
 	(let [possible-locs (-> state :boss :location maze)
 		  idx           (rand-int (count possible-locs))]
 		  (assoc-in state [:boss :location] (possible-locs idx))
@@ -102,8 +114,8 @@
       	 boss-loc (-> state :boss :location)]
 
         (if (>= 0 check-times)
-        		(println "\n###You do not have the ability to check-around.###\n")
-      			(println "\n###Checking nearby locations...###\n\n"
+        		(println "\n\t### You do not have the ability to check-around ###\n")
+      			(println "\n\t### Checking nearby locations... ###\n\n\t"
 					(for [room nearby] 
 						[(str "#"room": " 
 						 (if ((into #{} (keys (state :items))) room)
@@ -123,20 +135,20 @@
         (if (remaining-items-set curr-room)
             (let [room-item ((state :items) curr-room)
 				  add-invt (assoc-in state [:player :inventories] (conj curr-invt room-item))]
-                (println "You found a new item!")  
-				(println "**" ((item-description room-item) :name) "**\n")
-				(println ((item-description room-item) :desc))
+                (println "\tYou found a new item!")  
+				(println "\t**" ((item-description room-item) :name) "**")
+				(println (str "\t--> " ((item-description room-item) :desc)))
                 (cond (= room-item "ARMOR") 
 							(let [add-invt-def (assoc-in add-invt [:player :defense] 2)]
-								(println "Your defense increased from 0 -> 2")
+								(println "\tYour defense increased from 0 -> 2")
 								(assoc-in add-invt-def [:items] (dissoc (state :items) curr-room)))
 					  (= room-item "SWORD") 
 							(let [add-invt-dmg (assoc-in add-invt [:player :damage] 4)]
-								(println "Your damage increased from 2 -> 4")
+								(println "\tYour damage increased from 2 -> 4")
 								(assoc-in add-invt-dmg [:items] (dissoc (state :items) curr-room)))
 					  :else 
 					  		(assoc-in add-invt [:items] (dissoc (state :items) curr-room))))
-            (do (println "No item found in this room") 
+            (do (println "\tNo item found in this room") 
 				state)
 		)))
 
@@ -158,10 +170,13 @@ return nothing"
 	"move player to the next location depending on player's input, return the new state"
 	[state]
 	(println "What do you want to do? [R]oom-Description/[S]een-rooms/[C]heck-around/[M]ove/[Q]uit")
+	(println "You have" (-> state :player :check-around) "chances left to check-around")
 	(let [choice (read-line)
       	  tick (-> state :player :tick)]
 		(cond (or (= choice "M" ) (= choice "m")) 
 					(let [avai (-> state :player :location maze)]
+						(println maze-graph)
+						(println (str "you are in room #" (-> state :player :location)))
 						(println "available next steps are:" avai)
 						(println "please enter the number of the place you want to go:")
 						(loop [room-choice (read-line)]
@@ -169,10 +184,14 @@ return nothing"
 								(let [after-seen (assoc-in state [:player :seen] (conj (-> state :player :seen) room-choice))
 									  after-tick (assoc-in after-seen [:player :tick] (inc tick))
 									  ret-state (assoc-in after-tick [:player :location] (Integer/parseInt room-choice))]
-									  (println (str "\n[Your choice is #" room-choice "] \n\n---------Map--------"))
+									  (println (str "[Your choice is #" room-choice "] \n\n\t---------Map--------"))
 									  (if ((-> state :player :seen) room-choice)
-											(println (str "You are now in *" ((room-description (Integer/parseInt room-choice)) :name)"*\n\n------Inventory------"))
-									   		(println (str "You found a new place! \n" (print-room-desc ret-state)"\n\n------Inventory------")))
+											(println (str "\tYou are now in *" 
+														((room-description (Integer/parseInt room-choice)) :name)
+														"*\n\n\t------Inventory------"))
+									   		(println (str "\tYou found a new place! \n\t" 
+														(print-room-desc ret-state)
+														"\n\n\t------Inventory------")))
 									  ret-state)
 								(do (println "Please key in a valid room number")
 									(recur (read-line))) )))
@@ -180,10 +199,10 @@ return nothing"
 					(do (println "Thanks for playing!")
 						(System/exit 0))
 			  :else (cond (or (= choice "R") (= choice "r"))
-								(do (println (str "\nDescription: "(print-room-desc state)"\n"))
+								(do (println (str "\n\tDescription: "(print-room-desc state)"\n"))
 									(player-move state))
 						  (or (= choice "S") (= choice "s"))
-								(do (println (str "\nSeen rooms: "(-> state :player :seen)"\n"))
+								(do (println (str "\n\tSeen rooms: "(-> state :player :seen)"\n"))
 									(player-move state))
          				  (or (= choice "C") (= choice "c"))
           						(player-move (check-around state))
@@ -200,12 +219,12 @@ return nothing"
 		player-invts (-> state :player :inventories)
 		boss-hp (-> state :boss :health)]
 		(println "\n"
-		"############################## PLAYER status ##############################\n"
-		"  [hp]" player-hp "\t\t[damage]" player-damage "\t\t[defense]" player-defense "\n"
-		"  [inventories]" player-invts "\n"
-		"############################### BOSS status ###############################\n"
-		"  [hp]" boss-hp "\n"
-		"###########################################################################\n")))
+		"\t############################## PLAYER status ##############################\n"
+		"\t  [hp]" player-hp "\t\t[damage]" player-damage "\t\t[defense]" player-defense "\n"
+		"\t  [inventories]" player-invts "\n"
+		"\t############################### BOSS status ###############################\n"
+		"\t  [hp]" boss-hp "\n"
+		"\t###########################################################################\n")))
 
 (defn boss-rand-attack
 	"boss attack player randomly, return vect [skill-name, damage]"
@@ -213,11 +232,11 @@ return nothing"
 	(let [skills-num (count (-> state :boss :skills))
 		  rand-pick (rand-int (+ skills-num 1))]
 		(cond (= rand-pick skills-num)
-					(do (println "BOSS Normal Attack\n")
+					(do (println "\t>> BOSS Normal Attacked <<\n")
 						["normal" (-> state :boss :damage)])
 			  :else
 					(let [action ((-> state :boss :skills) rand-pick)]
-						(println "BOSS used" (action 0))
+						(println "\t>> BOSS used" (action 0) "<<\n")
 						[(action 0) (action 1)])
 		)))
 
@@ -227,7 +246,7 @@ return nothing"
 	(let [dmg (skill-damage 1)
 			player-hp (-> state :player :health)
 			player-def (-> state :player :defense)]
-			(println "You took" (- dmg player-def) "damage")
+			(println "\tYou took" (- dmg player-def) "damage")
 			(assoc-in state [:player :health] (- player-hp (- dmg player-def)))))
 
 (defn use-inventory
@@ -247,11 +266,11 @@ return nothing"
 				(loop [choice (read-line)]
 					(cond ((into #{} (map str (range (count avai)))) choice)
 							(let [invt-choice ((into {} idx-avai) (str choice ":"))]
-								(println "You used" invt-choice)
+								(println "\tYou used" invt-choice)
 								(if (= skl "normal")
 									(player-take-damage state skill-damage)
 									(if (= (str skl "-resist") invt-choice)
-										(do (println "Nice parry, you are intact in this attack!")
+										(do (println "\tNice parry, you are intact in this attack!")
 											state)
 										(player-take-damage state skill-damage))))
 						  :else
@@ -264,7 +283,7 @@ return nothing"
 	[state]
 	(let [player-dmg (-> state :player :damage)
 		  boss-hp (-> state :boss :health)]
-		(println "You dealt" player-dmg "damage to the BOSS")
+		(println "\tYou dealt" player-dmg "damage to the BOSS\n")
 		(assoc-in state [:boss :health] (- boss-hp player-dmg))))
 
 (defn player-response
@@ -308,8 +327,14 @@ return nothing"
 	(println "Are You Ready? [Y]es/[N]o")
 	(let [ready (read-line)]
 		(if (or (= ready "Y") (= ready "y")) 
-			(println "ONLY WINNER SURVIVES... GOOD LUCK!") (println "There is no way back now ... FIGHT UNTIL YOU DIE!"))
-			(Thread/sleep 1500))
+			(do (println "ONLY WINNER SURVIVES...")
+				(Thread/sleep 500)
+				(println "GOOD LUCK!")
+				(Thread/sleep 500))
+			(do (println "There is no way back now...")
+				(Thread/sleep 500)
+				(println "FIGHT UNTIL YOU DIE!")
+				(Thread/sleep 500))) )
 	(fight-status state)
 	
 	;; FIGHT HERE
@@ -324,16 +349,16 @@ return nothing"
 (defn play
 	"play loop, helper function for main"
 	[state]
-	(println "==============================")
-	(println "##   Welcome to the game!   ##")
-	(println "==============================")
+	(println "\t==============================")
+	(println "\t##   Welcome to the game!   ##")
+	(println "\t==============================")
 	(println "Press enter to continue...")
 	(read-line)
 	(loop [curr-state state]
 		(let [after-boss-move (move-boss curr-state)]
 			(boss-is-nearby after-boss-move)
 			(let [after-find (what-is-found (player-move after-boss-move))]
-				(println (str "Your inventory:" (-> after-find :player :inventories)"\n\n----Game Continues----"))
+				(println (str "\n\tYour inventory:" (-> after-find :player :inventories)"\n\n\t----Game Continues----"))
 				(if (meet-boss after-find)
 					(fight-boss after-find)
 					(recur after-find)))
