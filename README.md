@@ -1,44 +1,40 @@
-# adventure
+# Text Adventure Game
 
-FIXME: description
+## Goal
+  - collect items in the maze and kill the boss
+  - avoid the boss before you are strong enough to fight it
 
-## Installation
+## Maze
+  - the maze consists of 14 rooms in total
+  - the player will start at room 0
+  <img src="maze.jpg" align="center">
 
-Download from http://example.com/FIXME.
+## Play
+  - run [src\adventure\core.clj](src\adventure\core.clj) by using command `clj -M core.clj`
 
-## Usage
+<img src="demo1.jpg" align="center">
+<br><br/>
+<img src="demo2.jpg" align="center">
 
-FIXME: explanation
+## Spoilers
+  - Player and Boss
+    - Player default stat
+      - hp: 10
+      - defense: 0
+      - damage: 2
+    - Boss default stat
+      - hp: 20
+      - defense: 0
+      - normal attack damage: 2
+      - fire attack damage: 6
+      - lightning attack damage: 4
+      - poison attack damage: 8
 
-    $ java -jar adventure-0.1.0-standalone.jar [args]
-
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
-
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
-
-## License
-
-Copyright © 2021 FIXME
-
-This program and the accompanying materials are made available under the
-terms of the Eclipse Public License 2.0 which is available at
-http://www.eclipse.org/legal/epl-2.0.
-
-This Source Code may also be made available under the following Secondary
-Licenses when the conditions for such availability set forth in the Eclipse
-Public License, v. 2.0 are satisfied: GNU General Public License as published by
-the Free Software Foundation, either version 2 of the License, or (at your
-option) any later version, with the GNU Classpath Exception which is available
-at https://www.gnu.org/software/classpath/license.html.
+  - Items
+    - items will be placed randomly into some of the rooms
+    - there are total of 5 items available in the maze
+      - armor: build player's damage
+      - sword: build player's damage
+      - fire-resist: to be used in fight
+      - lightning-resist: to be used in fight
+      - poison-resist: to be used in fight
