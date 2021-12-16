@@ -12,9 +12,9 @@
 ## Play
   - run [src\adventure\core.clj](src\adventure\core.clj) by using command `clj -M core.clj`
 
-<img src="demo1.jpg" align="center">
+<img src="demo1.jpg" height=70% width=70%>
 <br><br/>
-<img src="demo2.jpg" align="center">
+<img src="demo2.jpg" height=70% width=70%>
 
 ## Spoilers
   - Player and Boss
